@@ -90,8 +90,27 @@ Puppet::Type.type(:package).provide(:brewcask, :parent => Puppet::Provider::Pack
   end
 
   def latest
-    package = self.class.package_list(:justme => resource_name)
-    package[:ensure]
+    begin
+      Puppet.debug "Querying latest for #{resource_name}"
+      output = execute([command(:brew), :info, '--cask', resource_name], :failonfail => true)
+
+      output.each_line do |line|
+        line.chomp!
+        next if line.empty?
+        next if line !~ /^#{resource_name}:\s([.\d]+)/i
+        Puppet.debug "  Latest versions for #{resource_name}: #{$1}"
+        # versions = $1
+        # return $1 if versions =~ /stable (\d+[^\s]*)\s+\(bottled\)/
+        # return $1 if versions =~ /stable (\d+.*), HEAD/
+        # return $1 if versions =~ /stable (\d+.*)/
+        # return $1 if versions =~ /(\d+.*)/
+        return $1
+      end
+      nil
+    rescue Puppet::ExecutionFailure
+      Puppet.err "Package #{resource_name} Query Latest failed: #{$!}"
+      nil
+    end
   end
 
   def query
@@ -130,8 +149,37 @@ Puppet::Type.type(:package).provide(:brewcask, :parent => Puppet::Provider::Pack
   end
 
   def update
-    Puppet.debug "Updating #{resource_name}"
-    install
+
+    if installed?
+      Puppet.debug "Updating #{resource_name}"
+      begin
+        Puppet.debug "Looking for #{install_name} package..."
+        execute([command(:brew), :info, '--cask', resource_name], :failonfail => true)
+      rescue Puppet::ExecutionFailure => detail
+        raise Puppet::Error, "Could not find package: #{install_name}"
+      end
+
+      begin
+        Puppet.debug "Package found, upgrading..."
+        output = execute([command(:brew), :upgrade, '--cask', install_name, *install_options], :failonfail => true)
+
+        if output =~ /sha256 checksum/
+          Puppet.debug "Fixing checksum error..."
+          mismatched = output.match(/Already downloaded: (.*)/).captures
+          fix_checksum(mismatched)
+        end
+      rescue Puppet::ExecutionFailure => detail
+        raise Puppet::Error, "Could not install package: #{detail}"
+      end
+
+    else
+      install
+    end
+  end
+
+  def installed?
+    is_not_installed = execute([command(:brew), :info, '--cask', install_name]).split("\n").grep(/^Not installed$/).first
+    is_not_installed.nil?
   end
 
   def self.package_list(options={})
@@ -160,7 +208,7 @@ Puppet::Type.type(:package).provide(:brewcask, :parent => Puppet::Provider::Pack
   end
 
   def self.name_version_split(line)
-    if line =~ (/^(\S+)\s+(.+)/)
+    if line =~ (/^(\S+)\s+([.\d]+)/)
       {
         :name     => $1,
         :ensure   => $2,
