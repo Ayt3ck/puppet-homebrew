@@ -1,5 +1,5 @@
 {
-  "name": "usm-homebrew",
+  "name": "puppet-homebrew",
   "version": "1.9.1",
   "author": "usm",
   "summary": "Homebrew (+brewcask! +taps!) package installer and provider",
