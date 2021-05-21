@@ -103,6 +103,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
         return $1 if versions =~ /stable (\d+[^\s]*)\s+\(bottled\)/
         return $1 if versions =~ /stable (\d+.*), HEAD/
         return $1 if versions =~ /stable (\d+.*)/
+        return $1 if versions =~ /(\d+.*)\s+\(auto_updates\)/
         return $1 if versions =~ /(\d+.*)/
       end
       nil
