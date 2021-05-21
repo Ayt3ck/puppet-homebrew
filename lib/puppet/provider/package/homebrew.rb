@@ -97,7 +97,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
       output.each_line do |line|
         line.chomp!
         next if line.empty?
-        next if line !~ /^#{@resource[:name]}:\s(.*)/i
+        next if line !~ /#{@resource[:name]}:\s(.*)/i
         Puppet.debug "  Latest versions for #{resource_name}: #{$1}"
         versions = $1
         return $1 if versions =~ /stable (\d+[^\s]*)\s+\(bottled\)/
