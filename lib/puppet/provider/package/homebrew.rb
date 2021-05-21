@@ -90,8 +90,25 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def latest
-    package = self.class.package_list(:justme => resource_name)
-    package[:ensure]
+    begin
+      Puppet.debug "Querying latest for #{resource_name} package..."
+      output = execute([command(:brew), :info, resource_name], :failonfail => true)
+
+      output.each_line do |line|
+        line.chomp!
+        next if line.empty?
+        next if line !~ /^#{@resource[:name]}:\s(.*)/i
+        Puppet.debug "  Latest versions for #{resource_name}: #{$1}"
+        versions = $1
+        return $1 if versions =~ /stable (\d+[^\s]*)\s+\(bottled\)/
+        return $1 if versions =~ /stable (\d+.*), HEAD/
+        return $1 if versions =~ /stable (\d+.*)/
+        return $1 if versions =~ /(\d+.*)/
+      end
+      nil
+    rescue Puppet::ExecutionFailure => detail
+      raise Puppet::Error, "Could not query latest version of package: #{detail}"
+    end
   end
 
   def query
@@ -100,30 +117,13 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
 
   def install
     begin
-      begin
-        Puppet.debug "Looking for #{install_name} package on brew..."
-        output = execute([command(:brew), :info, install_name], :failonfail => true)
+      Puppet.debug "Package #{install_name} found, installing..."
+      output = execute([command(:brew), :install, install_name, *install_options], :failonfail => true)
 
-        Puppet.debug "Package found, installing..."
-        output = execute([command(:brew), :install, install_name, *install_options], :failonfail => true)
-
-        if output =~ /sha256 checksum/
-          Puppet.debug "Fixing checksum error..."
-          mismatched = output.match(/Already downloaded: (.*)/).captures
-          fix_checksum(mismatched)
-        end
-      rescue Puppet::ExecutionFailure
-        Puppet.debug "Package #{install_name} not found on Brew. Trying BrewCask..."
-        execute([command(:brew), :info, '--cask', install_name], :failonfail => true)
-
-        Puppet.debug "Package found on brewcask, installing..."
-        output = execute([command(:brew), :install, '--cask', install_name, *install_options], :failonfail => true)
-
-        if output =~ /sha256 checksum/
-          Puppet.debug "Fixing checksum error..."
-          mismatched = output.match(/Already downloaded: (.*)/).captures
-          fix_checksum(mismatched)
-        end
+      if output =~ /sha256 checksum/
+        Puppet.debug "Fixing checksum error..."
+        mismatched = output.match(/Already downloaded: (.*)/).captures
+        fix_checksum(mismatched)
       end
     rescue Puppet::ExecutionFailure => detail
       raise Puppet::Error, "Could not install package: #{detail}"
@@ -134,18 +134,39 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
     begin
       Puppet.debug "Uninstalling #{resource_name}"
       execute([command(:brew), :uninstall, resource_name], :failonfail => true)
-    rescue Puppet::ExecutionFailure
-      begin
-        execute([command(:brew), :uninstall, '--cask', resource_name], :failonfail => true)
-      rescue Puppet::ExecutionFailure => detail
+    rescue Puppet::ExecutionFailure => detail
         raise Puppet::Error, "Could not uninstall package: #{detail}"
-      end
     end
   end
 
   def update
-    Puppet.debug "Updating #{resource_name}"
-    install
+    if installed?
+      begin
+        Puppet.debug "Package #{resource_name} found, upgrading..."
+        output = execute([command(:brew), :upgrade, install_name, *install_options], :failonfail => true)
+
+        if output =~ /sha256 checksum/
+          Puppet.debug "Fixing checksum error..."
+          mismatched = output.match(/Already downloaded: (.*)/).captures
+          fix_checksum(mismatched)
+        end
+      rescue Puppet::ExecutionFailure => detail
+        raise Puppet::Error, "Could not install package: #{detail}"
+      end
+
+    else
+      install
+    end
+  end
+
+  def installed?
+    begin
+      Puppet.debug "Check if #{resource_name} package installed on brew"
+      is_not_installed = execute([command(:brew), :info, install_name]).split("\n").grep(/^Not installed$/).first
+    rescue Puppet::ExecutionFailure
+        raise Puppet::Error, "Could not get status package: #{detail}"
+    end
+    is_not_installed.nil?
   end
 
   def self.package_list(options={})

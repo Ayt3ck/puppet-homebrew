@@ -149,7 +149,6 @@ Puppet::Type.type(:package).provide(:brewcask, :parent => Puppet::Provider::Pack
   end
 
   def update
-
     if installed?
       Puppet.debug "Updating #{resource_name}"
       begin
