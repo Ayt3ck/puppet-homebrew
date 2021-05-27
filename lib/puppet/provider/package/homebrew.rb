@@ -152,7 +152,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
           fix_checksum(mismatched)
         end
       rescue Puppet::ExecutionFailure => detail
-        raise Puppet::Error, "Could not install package: #{detail}"
+        raise Puppet::Error, "Could not upgrade package: #{detail}"
       end
 
     else
@@ -162,7 +162,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
 
   def installed?
     begin
-      Puppet.debug "Check if #{resource_name} package installed on brew"
+      Puppet.debug "Check if #{resource_name} package installed"
       is_not_installed = execute([command(:brew), :info, install_name]).split("\n").grep(/^Not installed$/).first
     rescue Puppet::ExecutionFailure
         raise Puppet::Error, "Could not get status package: #{detail}"
