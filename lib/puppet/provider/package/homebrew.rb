@@ -174,18 +174,18 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
     Puppet.debug "Listing installed packages"
     begin
       if resource_name = options[:justme]
-        result = execute([command(:brew), :list, '--versions', resource_name])
-        unless result.include? resource_name
-          result += execute([command(:brew), :list, '--cask', '--versions', resource_name])
-        end
-        if result.empty?
-          Puppet.debug "Package #{resource_name} not installed"
+        result = execute([command(:brew), :list, '--versions', '--cask'])
+        result += execute([command(:brew), :list, '--versions', '--formulae'])
+        res=result.split("\n")
+
+        if result.include? resource_name
+          Puppet.debug "Found package #{resource_name}"
+          result=res.grep(/^#{resource_name}/)
         else
-          Puppet.debug "Found package #{result}"
+          Puppet.debug "Package #{resource_name} not installed"
         end
       else
         result = execute([command(:brew), :list, '--versions'])
-        result += execute([command(:brew), :list, '--cask', '--versions'])
       end
       list = result.lines.map {|line| name_version_split(line)}
     rescue Puppet::ExecutionFailure => detail
