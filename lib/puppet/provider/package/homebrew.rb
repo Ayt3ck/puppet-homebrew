@@ -45,16 +45,19 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def self.instances(justme = false)
+    #Puppet.debug "########################### From INSTANCE"
     package_list.collect { |hash| new(hash) }
   end
 
   def execute(*args)
+    #Puppet.debug "########################### From EXECUTE"
     # This does not return exit codes in puppet <3.4.0
     # See https://projects.puppetlabs.com/issues/2538
     self.class.execute(*args)
   end
 
   def fix_checksum(files)
+    #Puppet.debug "########################### From CHECKSUM"
     begin
       for file in files
         File.delete(file)
@@ -67,6 +70,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def resource_name
+    #Puppet.debug "########################### From RESSOURCE_NAME"
     if @resource[:name].match(/^https?:\/\//)
       @resource[:name]
     else
@@ -75,6 +79,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def install_name
+    #Puppet.debug "########################### From INSTALL_NAME"
     should = @resource[:ensure].downcase
 
     case should
@@ -86,10 +91,12 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def install_options
+    #Puppet.debug "########################### From INSTALL_OPTIONS"
     Array(resource[:install_options]).flatten.compact
   end
 
   def latest
+    #Puppet.debug "########################### From LATEST"
     begin
       Puppet.debug "Querying latest for #{resource_name} package..."
       output = execute([command(:brew), :info, resource_name], :failonfail => true)
@@ -113,10 +120,12 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def query
+    Puppet.debug "########################### From QUERY"
     self.class.package_list(:justme => resource_name)
   end
 
   def install
+    #Puppet.debug "########################### From INSTALL"
     begin
       Puppet.debug "Package #{install_name} found, installing..."
       output = execute([command(:brew), :install, install_name, *install_options], :failonfail => true)
@@ -132,6 +141,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def uninstall
+    #Puppet.debug "########################### From UNINSTALL"
     begin
       Puppet.debug "Uninstalling #{resource_name}"
       execute([command(:brew), :uninstall, resource_name], :failonfail => true)
@@ -141,6 +151,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def update
+    #Puppet.debug "########################### From UPDATE"
     if installed?
       begin
         Puppet.debug "Package #{resource_name} found, upgrading..."
@@ -161,6 +172,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def installed?
+    #Puppet.debug "########################### From INSTALLED"
     begin
       Puppet.debug "Check if #{resource_name} package installed"
       is_not_installed = execute([command(:brew), :info, install_name]).split("\n").grep(/^Not installed$/).first
@@ -173,33 +185,43 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   def self.package_list(options={})
     Puppet.debug "Listing installed packages"
     begin
+
+      result = execute([command(:brew), :list, '--versions', '--cask'])
+      result += execute([command(:brew), :list, '--versions', '--formulae'])
+      
       if resource_name = options[:justme]
-        result = execute([command(:brew), :list, '--versions', '--cask'])
-        result += execute([command(:brew), :list, '--versions', '--formulae'])
-        res=result.split("\n")
 
         if result.include? resource_name
           Puppet.debug "Found package #{resource_name}"
-          result=res.grep(/^#{resource_name}/)
+          res=result.lines
+          Puppet.debug "Compute #{res} as array"
+
+          result=res.grep(/^#{resource_name}/).first
+          Puppet.debug "Stored #{result} in package_list"
         else
           Puppet.debug "Package #{resource_name} not installed"
+          result=''
         end
-      else
-        result = execute([command(:brew), :list, '--versions'])
       end
+
       list = result.lines.map {|line| name_version_split(line)}
+      Puppet.debug "Sending #{list} in package_list"
+
     rescue Puppet::ExecutionFailure => detail
       raise Puppet::Error, "Could not list packages: #{detail}"
     end
 
     if options[:justme]
+      Puppet.debug "return #{list.shift} in package_list"
       return list.shift
     else
+      Puppet.debug "return #{list} in package_list"
       return list
     end
   end
 
   def self.name_version_split(line)
+    #Puppet.debug "########################### From NAME_VERSION_SPLIT"
     if line =~ (/^(\S+)\s+(.+)/)
       {
         :name     => $1,
