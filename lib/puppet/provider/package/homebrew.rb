@@ -191,7 +191,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
       
       if resource_name = options[:justme]
 
-        if result.include? resource_name
+        if result =~ /^#{resource_name} /
           Puppet.debug "Found package #{resource_name}"
           res=result.lines
           Puppet.debug "Compute #{res} as array"
