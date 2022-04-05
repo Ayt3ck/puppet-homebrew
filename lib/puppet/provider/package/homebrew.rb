@@ -45,19 +45,19 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def self.instances(justme = false)
-    #Puppet.debug "########################### From INSTANCE"
+    Puppet.debug "########################### From INSTANCE"
     package_list.collect { |hash| new(hash) }
   end
 
   def execute(*args)
-    #Puppet.debug "########################### From EXECUTE"
+    Puppet.debug "########################### From EXECUTE"
     # This does not return exit codes in puppet <3.4.0
     # See https://projects.puppetlabs.com/issues/2538
     self.class.execute(*args)
   end
 
   def fix_checksum(files)
-    #Puppet.debug "########################### From CHECKSUM"
+    Puppet.debug "########################### From CHECKSUM"
     begin
       for file in files
         File.delete(file)
@@ -70,7 +70,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def resource_name
-    #Puppet.debug "########################### From RESSOURCE_NAME"
+    Puppet.debug "########################### From RESSOURCE_NAME"
     if @resource[:name].match(/^https?:\/\//)
       @resource[:name]
     else
@@ -79,7 +79,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def install_name
-    #Puppet.debug "########################### From INSTALL_NAME"
+    Puppet.debug "########################### From INSTALL_NAME"
     should = @resource[:ensure].downcase
 
     case should
@@ -91,12 +91,12 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def install_options
-    #Puppet.debug "########################### From INSTALL_OPTIONS"
+    Puppet.debug "########################### From INSTALL_OPTIONS"
     Array(resource[:install_options]).flatten.compact
   end
 
   def latest
-    #Puppet.debug "########################### From LATEST"
+    Puppet.debug "########################### From LATEST"
     begin
       Puppet.debug "Querying latest for #{resource_name} package..."
       output = execute([command(:brew), :info, resource_name], :failonfail => true)
@@ -125,7 +125,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def install
-    #Puppet.debug "########################### From INSTALL"
+    Puppet.debug "########################### From INSTALL"
     begin
       Puppet.debug "Package #{install_name} found, installing..."
       output = execute([command(:brew), :install, install_name, *install_options], :failonfail => true)
@@ -141,7 +141,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def uninstall
-    #Puppet.debug "########################### From UNINSTALL"
+    Puppet.debug "########################### From UNINSTALL"
     begin
       Puppet.debug "Uninstalling #{resource_name}"
       execute([command(:brew), :uninstall, resource_name], :failonfail => true)
@@ -151,7 +151,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def update
-    #Puppet.debug "########################### From UPDATE"
+    Puppet.debug "########################### From UPDATE"
     if installed?
       begin
         Puppet.debug "Package #{resource_name} found, upgrading..."
@@ -172,7 +172,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def installed?
-    #Puppet.debug "########################### From INSTALLED"
+    Puppet.debug "########################### From INSTALLED"
     begin
       Puppet.debug "Check if #{resource_name} package installed"
       is_not_installed = execute([command(:brew), :info, install_name]).split("\n").grep(/^Not installed$/).first
@@ -191,7 +191,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
       
       if resource_name = options[:justme]
 
-        if result.include? resource_name
+        if result =~ /^#{resource_name} /
           Puppet.debug "Found package #{resource_name}"
           res=result.lines
           Puppet.debug "Compute #{res} as array"
@@ -221,7 +221,7 @@ Puppet::Type.type(:package).provide(:homebrew, :parent => Puppet::Provider::Pack
   end
 
   def self.name_version_split(line)
-    #Puppet.debug "########################### From NAME_VERSION_SPLIT"
+    Puppet.debug "########################### From NAME_VERSION_SPLIT"
     if line =~ (/^(\S+)\s+(.+)/)
       {
         :name     => $1,
